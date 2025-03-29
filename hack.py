@@ -28,8 +28,6 @@ class JobListing(BaseModel):
     title: str
     company: str
     location: str
-    experience: str
-    skills: str
     
     class Config:
         schema_extra = {
@@ -37,8 +35,6 @@ class JobListing(BaseModel):
                 "title": "Full Stack Developer",
                 "company": "TechCorp",
                 "location": "Bangalore",
-                "experience": "3-5 years",
-                "skills": "Python, React, NodeJS"
             }
         }
 
@@ -99,7 +95,7 @@ def search_jobs(query: str, top_k: int = 10) -> List[Dict[str, Any]]:
     
     results = []
     for job in job_database:
-        combined_text = f"Title: {job['title']}. Company: {job['company']}. Location: {job['location']}. Experience: {job['experience']}. Skills: {job['skills']}"
+        combined_text = f"Title: {job['title']}. Company: {job['company']}. Location: {job['location']}"
         job_embedding = get_embedding(combined_text)
         similarity = cosine_similarity(query_embedding, job_embedding)
         results.append((similarity, job))
@@ -146,17 +142,10 @@ def scrape_jobs_from_indeed(query: str, location: str = "", num_jobs: int = 10) 
                 location_elem = card.select_one("div.companyLocation")
                 location_text = location_elem.get_text(strip=True) if location_elem else "N/A"
                 
-                experience = "Not specified"
-                
-                snippet_elem = card.select_one("div.job-snippet")
-                skills = snippet_elem.get_text(strip=True) if snippet_elem else "N/A"
-                
                 job = {
                     "title": title,
                     "company": company,
-                    "location": location_text,
-                    "experience": experience,
-                    "skills": skills
+                    "location": location_text
                 }
                 
                 jobs.append(job)
@@ -211,16 +200,10 @@ def scrape_jobs_from_linkedin(query: str, location: str = "", num_jobs: int = 10
                 location_elem = card.select_one("span.job-search-card__location")
                 location_text = location_elem.get_text(strip=True) if location_elem else "N/A"
                 
-                experience = "Not specified"
-                
-                skills = f"Related to: {query}"
-                
                 job = {
                     "title": title,
                     "company": company,
-                    "location": location_text,
-                    "experience": experience,
-                    "skills": skills
+                    "location": location_text
                 }
                 
                 jobs.append(job)
@@ -239,7 +222,7 @@ def scrape_jobs_from_linkedin(query: str, location: str = "", num_jobs: int = 10
 def call_gemini_llm(prompt: str) -> str:
     """Get insights from Gemini model"""
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content(prompt)
         return response.text if hasattr(response, 'text') else str(response)
     except Exception as e:
@@ -264,18 +247,16 @@ def generate_insights(query: str, jobs: List[Dict[str, Any]]) -> str:
         return "No relevant jobs found to analyze."
         
     context = "\n".join([
-        f"{i+1}. {job['title']} at {job['company']} ({job['location']} required exp: {job['experience']} skills: {job['skills']})"
+        f"{i+1}. {job['title']} at {job['company']} ({job['location']})"
         for i, job in enumerate(jobs)
     ])
     
     prompt = (
         f"Query: {query}\n\n"
         f"Listings:\n{context}\n\n"
-        "Based on these job listings, provide:\n"
-        "1. A brief summary of the job market for this search\n"
-        "2. In-demand skills and experience requirements\n"
-        "3. Actionable advice for job seekers in this area\n"
-        "4. Keep the response concise and maximum limit to 200 words.\n\n"
+        "Based on these job listings, provide exactly 5 frequently asked questions (FAQs) that job seekers might have about these positions. "
+        "Number each question from 1-5 and provide a concise answer for each. "
+        "Don't include any introduction or conclusion, just the 5 FAQs in a clear numbered format.\n\n"
     )
     
     return call_gemini_llm(prompt)
