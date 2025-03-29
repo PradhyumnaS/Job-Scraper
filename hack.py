@@ -9,6 +9,7 @@ import random
 import numpy as np
 import os 
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware  
 
 load_dotenv()
 
@@ -23,6 +24,14 @@ job_database = []
 
 app = FastAPI(title="Job Finder API", 
               description="An API for finding and analyzing job listings")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class JobListing(BaseModel):
     title: str
